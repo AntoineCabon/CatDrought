@@ -76,7 +76,7 @@ shinyUI(
                                 draggable = TRUE, top = 253, left = "auto", right = 65, bottom = "auto",
                                 width = 250, height = 180,
                                 h4(""),
-                                selectInput("basemap_daily","Base map", choices = c("Esri.WorldGrayCanvas","Stamen.TerrainBackground")),
+                                selectInput("basemap_daily","Base map", choices = c("Esri.WorldGrayCanvas","Stamen.TerrainBackground", "Google terrain")),
                                 sliderInput("alpha_daily", "Raster opacity", min = 0, max = 1, value = 1, ticks = FALSE)
                   )
                 )

@@ -221,16 +221,27 @@ shinyServer(function(input, output, session) {
   # Create an interactive map centered on catalonia
   output$map_daily <- renderLeaflet({
     leaflet(options = leafletOptions(minZoom = 8, maxZoom = 12)) %>%
-      addProviderTiles("Esri.WorldGrayCanvas", layerId="basemap") %>%
+      addProviderTiles("Esri.WorldGrayCanvas", group="Grey - Esri", layerId = "basemap") %>%
+      # addProviderTiles("Stamen.TerrainBackground",group="Terrain - Stamen") %>% 
+      # addTiles(urlTemplate = "https://mts1.google.com/vt/lyrs=p&hl=en&src=app&x={x}&y={y}&z={z}&s=G", attribution = 'Google', 
+      #          group = "Terrain - Google", options = tileOptions(Zindex = 1)) %>%
+      # addLayersControl(baseGroups = c("Grey - Esri", "Terrain - Stamen", "Terrain - Google")) %>%
       setView(lng = 1.74,lat = 41.69, zoom = 8)
     
   })
   observe({
-    leafletProxy("map_daily") %>%
-      removeImage(layerId="basemap") %>%
-      addProviderTiles(input$basemap_daily,layerId="basemap") %>% 
-      showGroup("rasterGroup")
-  }) 
+    if(input$basemap_daily %in% c("Esri.WorldGrayCanvas","Stamen.TerrainBackground")){
+      leafletProxy("map_daily") %>%
+        removeImage(layerId="basemap") %>%
+        addProviderTiles(input$basemap_daily,layerId="basemap") %>%
+        showGroup("rasterGroup")
+    } else if(input$basemap_daily == "Google terrain"){
+      leafletProxy("map_daily") %>%
+        removeImage(layerId="basemap") %>%
+        addTiles(urlTemplate = "https://mts1.google.com/vt/lyrs=p&hl=en&src=app&x={x}&y={y}&z={z}&s=G", attribution = "Google", layerId = "basemap") %>%
+        showGroup("rasterGroup")
+    } else {}
+  })
   
   # Create a reactive value data for rasters
   map_daily_raster_data <- reactiveValues(x = list())
@@ -682,7 +693,8 @@ shinyServer(function(input, output, session) {
       if(map_daily_data$x$nplots>1) title<-title<-paste0(title, " (",map_daily_data$x$nplots," plots)")
       if(input$mode_daily=="Drought stress") {
         dygraph(x, main= title) %>% 
-          dySeries(c("lower", "mean","upper"), label=label) %>% 
+          dySeries(c("lower", "mean", "upper"), label = label) %>%
+          dySeries(color = "red") %>%
           dyRangeSelector() %>%
           dyAxis("y", label = "Daily drought stress", valueRange = c(0, 1)) %>%
           dyLimit(0.5, color="red")
