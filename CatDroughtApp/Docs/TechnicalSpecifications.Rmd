@@ -1,7 +1,9 @@
 ---
-title: "Catalan Forest Drought Prediction Tool"
-author: "Miquel De Cáceres, Antoine Cabon, Jordi Martinez-Vilalta"
-output: html_document
+title: "Technical specifications"
+author: "Miquel De Cáceres"
+output: 
+  html_document:
+    toc: TRUE
 ---
 
 <!-- # Catalan Forest Drought Prediction Tool -->
@@ -12,27 +14,29 @@ output: html_document
 
 ### Overview
 
-This service offers model-based estimates of the recent trends (up to 1 year) and projected scenarios (up to year 2100) in soil moisture levels of forests and drought stress of main tree species over Catalonia (NE Spain). Estimates are obtained using a soil water balance (SWB) model and forest plot data of the Spanish National Forest Inventory (De Cáceres et al. 2015). Water balance is done at the stand level, neglecting lateral hydrological processes. The service complements monitoring programs of observed drought-related forest decline (mortality, decoloration and leaf loss) conducted in the same area (DEBOSCAT) (Chaparro et al. 2016).
+This service offers model-based estimates of the historic (1986-2016), recent trends (up to 1 year) and projected scenarios (up to year 2100) in soil moisture levels of forests and drought stress of main tree species over Catalonia (NE Spain). Estimates are obtained using a soil water balance (SWB) model and forest plot data of the Spanish National Forest Inventory (De Cáceres et al. 2015). Water balance is done at the stand level only, neglecting lateral hydrological processes. The service complements monitoring programs of observed drought-related forest decline (mortality, decoloration and leaf loss) conducted in the same area (DEBOSCAT) (Chaparro et al. 2016).
 
 
 ### Soil water balance (SWB) model
 
-The water balance model described in De Cáceres et al. (2015) (implemented in the *medfate* R package) follows the design principles from BILJOU (Granier et al. 1999) and SIERRA water balance submodel (Mouillot et al. 2001). The model performs daily updates of soil water content as a function of the stand structure and daily weather (radiation, temperature and precipitation). Soil water balance is the difference between processes determining water input (precipitation) and outputs (canopy interception, tree transpiration, bare soil evaporation, surface runoff and deep drainage). Details of the formulation of each of these processes are given in De Cáceres et al. (2015).
+The water balance model described in De Cáceres et al. (2015) (implemented in the *medfate* R package) follows the design principles from BILJOU (Granier et al. 1999) and SIERRA water balance submodel (Mouillot et al. 2001). The model performs daily updates of soil water content as a function of the stand structure and daily weather (radiation, temperature and precipitation). Soil water balance is the difference between processes determining water input (i.e. precipitation) and outputs (canopy interception, tree transpiration, bare soil evaporation, surface runoff and deep drainage). Details of the formulation of each of these processes are given in De Cáceres et al. (2015).
+
 
 *Weather inputs*
 
-The SWB model requires knowing the following daily weather variables: precipitation, potential evapotranspiration (PET). Average daily temperature is also required to calculate growth degree days and update phenological status, but this variable is not stored.
+The SWB model requires values of the following daily weather variables: precipitation, potential evapotranspiration (PET). Average daily temperature is also required to calculate growth degree days and update phenological status, but this variable is not currently stored.
 
 Variable name	| Definition | Units | Aggreg.
 ------------- | ---------- | ----- | -------
 PET	| Penman’s potential evapotranspiration	| mm/day	| Sum
 Precipitation	| Precipitation	| mm/day	| Sum
 
+
 ---
 
-*Soil water balance output*
+*Forest water balance*
 
-The SWB model updates the leaf area index (LAI) of forests according to phenology and produces the following variables describing the water balance in forest stands:
+Every simulation day, the SWB model updates the leaf area index (LAI) of forests according to a simple phenology model and produces the following variables describing the water balance in forest stands:
 
 Variable name	| Definition | Units | Aggreg.
 ------------- | ---------- | ----- | -------
@@ -44,13 +48,17 @@ Eplant | Plant transpiration | mm/day | Sum
 Esoil | Soil evaporation | mm/day | Sum
 Theta | Average soil moisture relative to field capacity. | [0-1] | Average
 
+
+Net precipitation is gross precipitation minus the water intercepted by the canopy and evaporated from there. After going through the canopy, water infiltrates into the soil. Runoff is the amount of water that does not infiltrate and leaves the forest stand as an overland flow. Even if water infiltrates into the soil, part of it flows through macroscopic pores and is exported to layers not accessible to plants through deep drainage. Plant transpiration is the amount of water that flows through stems and is evaporated from leaf surfaces. Soil evaporation is the amount of water that is evaporated from the soil surface.
+
 ---
 
-*Daily drought stress*
+*Relative conductance and daily drought stress*
 
-Daily drought stress is defined as the complement of relative whole-plant conductance. In other words, daily stress is higher when the species has a lower overall plant conductance (which can be due to a closure of stomata or the presence of emboli in vessels). For a given soil moisture level in a stand, the plants present may experience different levels of drought stress depending on their species identity, root system,.... For each simulated forest stand, the daily drought stress for every species present is calculated by averaging daily drought stress of plant cohorts of the species, using LAI values as weights. The following species are tracked in terms of their daily stress.
+Plant transpiration depends on atmospheric demand, soil water content and species identities. Some species close suffer from drought stress at higher soil water contents than others. Whole-plant relative conductance is a relative measure of how much plant transpiration is reduced due to stress. The *daily drought stress* (DDS) index is defined as the complement ofthe whole-plant relative conductance. In other words, daily stress is higher when the species has a lower overall plant conductance (which can be due to a closure of stomata or the presence of emboli in vessels). For a given soil moisture level in a stand, plants present may experience different levels of drought stress depending on their species identity, root system,.... For each simulated forest stand, the daily drought stress for every species present is calculated by averaging daily drought stress of plant cohorts of the species, using LAI values as weights. The following species are tracked in terms of their daily stress.
 
-Variable        | Definition                          | Units | Aggreg.
+
+Species        | Definition                          | Units | Aggreg.
 --------------- | ----------------------------------- | ----- | -------
 PinusHalepensis	| Drought stress for Pinus halepensis	| [0,1] | Average
 PinusNigra | Drought stress for Pinus nigra | [0,1] | Average
@@ -69,8 +77,23 @@ Overall | Average drought stress across all woody plants | [0,1] | Average
 
 *Cumulative drought stress*
 
-The cumulative effect of drought stress on forests is tracked by counting the number of consecutive days with daily drought stress values above 0.5 (i.e. less than 50% in conductance). Within a year, values of cumulative drought stress are therefore bounded between 0 and 365. Cumulative drought stress is represented for the same species (and overall) as in daily drought stress.
+The cumulative effect of drought stress on forests is tracked by counting the *number of consecutive days* with daily drought stress values above 0.5 (i.e. less than 50% in conductance). Assuming that in the first of january stress will always be below 50%, within a year values of cumulative drought stress are therefore bounded between 0 and 365. Cumulative drought stress is represented for the same species (and overall) as in daily drought stress.
 
+
+Species        | Definition                          | Units | Aggreg.
+--------------- | ----------------------------------- | ----- | -------
+PinusHalepensis	| Drought stress for Pinus halepensis	| [0,365] | Maximum
+PinusNigra | Drought stress for Pinus nigra | [0,365] | Maximum
+PinusSylvestris | Drought stress for Pinus sylvestris | [0,365]| Maximum
+PinusUncinata | Drought stress for Pinus uncinata | [0,365] | Maximum
+PinusPinea | Drought stress for Pinus pinea | [0,365] | Maximum
+PinusPinaster | Drought stress for Pinus pinaster | [0,365] | Maximum
+QuercusIlex | Drought stress for Quercus ilex | [0,365] | Maximum
+QuercusSuber | Drought stress for Quercus suber | [0,365] | Maximum
+QuercusHumilis | Drought stress for Quercus humilis | [0,365] | Maximum
+QuercusFaginea | Drought stress for Quercus faginea | [0,365] | Maximum
+FagusSylvatica | Drought stress for Fagus sylvatica | [0,365] | Maximum
+Overall | Average drought stress across all woody plants | [0,365] | Maximum
 
 ---
 
@@ -114,11 +137,25 @@ The imputation process of IFN3 plots to 200x200 m pixels may entail gross errors
 
 Weather station data of the current day is downloaded from APIs provided by the Spanish [Agencia Estatal de Meteorologia (AEMET)](https://opendata.aemet.es/centrodedescargas/inicio). This information, complemented with weather data from previous days, is used to interpolate weather variables over the simulation locations (pixels or IFN3 plots). Interpolation routines are implemented in package *meteoland*. 
 
+*Mapping*
+
+The spatial scope of displayed results is within Catalonia boundaries and at a maximum 2km distance from IFN3 plots. Two raster resolution levels and three display options are offered:
+
++ Smoothed 1 km2
++	1 km2
++	200 x 200 m
+
+Values at 1km2 are calculated averaging 200 x 200 m pixels. Smoothing is done on 1 km2 pixels using a spatial kernel of radius 2 km (R package *spatstat*). Maps are usually displayed at the daily scale, but the user can decide to map values aggregated temporally up to a number of days Temporal aggregation follows the function (sum or average) indicated in variable tables above.
+
+*Temporal trends*
+
+Daily temporal trends are stored for IFN3 plots only (i.e. not for pixels). Average trends can be displayed at four spatial levels: (a) Watersheds; (b) Counties; (c) Municipalities; and (d) IFN3 plots. The user can select the desired spatial structure depending on each level. In the case of IFN3 plots the trends of the selected IFN3 plot are displayed. For the other levels, the application loads the trends of all the IFN3 plots within county/municipality boundaries and calculates average and 5%-95% confidence interval.
+
 ---
 
-### MODE 2: Historic (1990-2015) forest drought
+### MODE 2: Historic (1986-2016) forest drought
 
-In this mode, the soil water balance model is used to simulate water balance for the historical period between 1990 and 2015. Unlike current-day simulations, climate change simulations are conducted for forest inventory plots only. Moreover, only monthly and yearly summaries are stored. 
+In this mode, the soil water balance model is used to simulate water balance for the historical period between 1986 and 2016. Unlike current-day simulations, climate change simulations are conducted for forest inventory plots only. Moreover, only monthly and yearly summaries are stored. 
 
 *Simulation locations and initialization*
 
@@ -132,7 +169,7 @@ The following diagram illustrates the workflow of tasks necessary for the initia
 
 *Climate forcing*
 
-Historic weather series for each forest plot is obtained by interpolating daily weather station data for the 1990-2015 period, using package *meteoland*. Surface weather station data was obtained from the [Agencia Estatal de Meteorologia (AEMET)](http://www.aemet.es) and [Servei Meteorologic de Catalunya (SMC)](http://www.meteo.cat).
+Historic weather series for each forest plot is obtained by interpolating daily weather station data for the 1986-2016 period, using package *meteoland*. Surface weather station data was obtained from the [Agencia Estatal de Meteorologia (AEMET)](http://www.aemet.es) and [Servei Meteorologic de Catalunya (SMC)](http://www.meteo.cat).
 
 
 
@@ -155,29 +192,55 @@ CNRM-CERFACS	 | RCA4	| Europe | 8.5 | 11 km
 
 ---
 
-Statistical downscaling is applied to daily climate data, which includes a bias correction. Bias correction is conducted using package *meteoland*, and requires a local historic meteorological series to use as reference for bias estimation. This is obtained by interpolating daily weather station data over IFN3 plots for the 1990-2005 period (station data from AEMET and SMC).
-
-### Mapping
-
-*Spatial scope and resolution*
-
-The spatial scope of displayed results is within Catalonia boundaries and at a maximum 2km distance from IFN3 plots. Two raster resolution levels and three display options are offered:
-
-+ Smoothed 1 km2
-+	1 km2
-+	200 x 200 m
-
-Simulations are done at 200 x 200 m resolution. Values at 1km2 are calculated averaging 200 x 200 m pixels. Smoothing is done on 1 km2 pixels using a spatial kernel of radius 2 km (R package *spatstat*).
-
-*Temporal aggregation*
-
-Maps are usually displayed at the daily scale, but the user can decide to map values aggregated temporally up to a number of weeks. Temporal aggregation follows the function (sum or average) indicated in variable tables above.
-
-### Temporal trends
-
-As mentioned above, daily temporal trends are stored for IFN3 plots only (i.e. not for pixels). Trends can be displayed at three spatial levels: (a) Counties; (b) Municipalities; and (c) IFN3 plots. The user can select the desired spatial structure depending on each level. In the case of IFN3 plots the trends of the selected IFN3 plot are displayed. For the other two levels, the application loads the trends of all the IFN3 plots within county/municipality boundaries and calculates average and 5-95 confidence interval.
+Statistical downscaling is applied to daily climate data, which includes a bias correction. Bias correction is conducted using package *meteoland*, and requires a local historic meteorological series to use as reference for bias estimation. This is obtained by interpolating daily weather station data over IFN3 plots for the 1986-2005 period (station data from AEMET and SMC).
 
 
+
+### Computational times
+
+The following table provides an idea of current computational times of the different tasks:
+
+
+MODE               | Task                          | Computational time | Parellized | Daily |
+------------------ | ----------------------------- |:------------------:|:----------:|:-----:| 
+MODE 1 (current)   | Initialization                |  10 min            | No         | No    |
+MODE 1 (current)   | Plot meteo interpolation      |  1 min             | No         | Yes   |
+MODE 1 (current)   | Plot soil water balance       |  2 min             | Yes        | Yes   |
+MODE 1 (current)   | Plot update trends            |  2 min             | No         | Yes   |
+MODE 1 (current)   | Pixel meteo interpolation     |  4 min             | Yes        | Yes   |
+MODE 1 (current)   | Pixel soil water balance      |  3 min             | Yes        | Yes   | 
+MODE 1 (current)   | Smoothing for maps            |  1 min             | No         | Yes   |
+MODE 2/3           | Meteo interpolation 1986-2016 |  7 days            | No         | No    |
+MODE 2 (historic)  | Soil water balance IFN2/IFN3  |  18 hours          | No         | No    |
+MODE 2 (historic)  | Mapping                       |  2 hours           | No         | No    |
+MODE 2 (historic)  | Trend mapping                 |  1 hour            | No         | No    |
+MODE 3 (projection)| Bias correction & SWB         |  10 days           | No         | No    |
+MODE 3 (projection)| Trend mapping                 |  10 hours          | No         | No    |
+
+---
+
+Daily routines in total account for 13 min of computation in a server with 8 cores.
+
+---
+
+### Known issues and potential improvements
+
+*Known issues*
+
++ Historic meteo stations have zero precipitation records that suggest the need for quality check
+
+
+*Potential improvements*
+
++ Replace plot-based historic meteo interpolation by 1km pixel-based over Catalonia for mapping purposes (¿?)
++ Soil input data from [SoilGrids](https://www.soilgrids.org)
++ Combine initialization IFN2 (1987-91), IFN3 (2000-2001) and IFN4 (2014) in historical simulations.
++ Use IFN4 (2014) in climate change simulations.
++ Validation/comparison with remote sensing data (SMOS, RWC).
++ Inclusion of hydraulic redistribution
++ Inclusion of lateral water fluxes.
+
+---
 
 ### References
 
@@ -188,18 +251,5 @@ As mentioned above, daily temporal trends are stored for IFN3 plots only (i.e. n
 + Granier, A., Bréda, N., Biron, P. & Villette, S. (1999). A lumped water balance model to evaluate duration and intensity of drought constraints in forest stands. Ecol. Modell., 116, 269–283.
 + Mouillot, F., Rambal, S. & Lavorel, S. (2001). A generic process-based SImulator for meditERRanean landscApes (SIERRA): design and validation exercises. For. Ecol. Manage., 147, 75–97.
 
-
-### Improvements
-
-*Planned*
-
-+ Soil input data from [SoilGrids](https://www.soilgrids.org)
-+ Combine initialization IFN2 (1987-91), IFN3 (2000-2001) and IFN4 (2014) in historical simulations.
-+ Use IFN4 (2014) in climate change simulations.
-
-*Needed*
-
-+ Validation/comparison with remote sensing data (SMOS, RWC).
-+ Inclusion of later water fluxes.
 
 ---

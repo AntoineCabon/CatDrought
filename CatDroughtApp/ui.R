@@ -10,15 +10,16 @@ medfate_sp <- c("Overall", "PinusHalepensis", "PinusNigra", "PinusSylvestris", "
                 "QuercusIlex", "QuercusSuber", "QuercusHumilis", "QuercusFaginea", "FagusSylvatica")
 species <- data.frame(input = input_sp, medfate = medfate_sp)
 
+basemaps <- c("Esri.WorldGrayCanvas","Esri.WorldImagery","Esri.WorldShadedRelief","Stamen.TerrainBackground")
+
 shinyUI(
-  navbarPage("Catalan Forest Drought Prediction Tool",
+  navbarPage("Catalan Forest Drought Observatory",
      theme = shinythemes::shinytheme("sandstone"),
-     #### CURRENT FOREST DROUGHT  ####
+    ### CURRENT FOREST DROUGHT  ####
      tabPanel("Current",
-          wellPanel(
                 fluidRow(
                   column(width=3,
-                         selectInput("mode_daily", "Variable type", choices = c("Climate","Soil water balance", "Drought stress"))
+                         selectInput("mode_daily", "Variable type", choices = c("Climate","Forest water balance", "Drought stress"), selected = "Forest water balance")
                   ),
                   column(width=3,
                          uiOutput("var_choice_daily")
@@ -36,50 +37,45 @@ shinyUI(
                          tags$head(
                              includeCSS("styles.css")
                          ),
-                        wellPanel(
+                         h5(""),
+                        # wellPanel(
                         sidebarLayout(
                          sidebarPanel(
-                           fluidRow(
-                             column(width=8,
-                                dateInput("date_daily", "Date",value = Sys.Date()-1, min =as.Date("2017-01-01"), max = Sys.Date()-1, weekstart=1)
-                             ),
-                             column(width=4,
-                                    selectInput("agg_daily", "Aggr.", choices=1:30, selected=1)
-                             )
-                           ),
+                           uiOutput("date_daily"),
+                           selectInput("agg_daily", "Aggr. (days)", choices=1:30, selected=1),
                            hr(),
                            selectInput("display_daily", "Selection type", choices = c("none", "Watersheds", "Counties", "Municipalities", "IFN plots"), selected = "none"),
                            hr(),
-                           radioButtons("resolution_daily", "Raster resolution", choices = c("Smoothed","1km", "200m"), selected = "Smoothed", inline=TRUE),
+                           radioButtons("resolution_daily", "Raster resolution", choices = c("Smoothed","1km", "200m"), selected = "Smoothed"),
                            hr(),
                            downloadButton('downloadRasterDaily', 'Download raster'),
                          width=3),
                          mainPanel(
                                leafletOutput("map_daily", width = "100%", height = "600px")
                          ,width=9)
-                       )
+                       # )
                       )
                   ),
                   tabPanel("Selected series",
-                        wellPanel(
-                            dygraphOutput("trends_daily"), 
+                        # wellPanel(
+                            h5(""),
+                            dygraphOutput("trends_daily"),
                             hr(),
                             downloadButton('downloadTrendDaily', 'Download trend')
-                        )
+                        # )
                   ),
-                    
+
                   id="DailyTabset"
                 ),
                 conditionalPanel(
                   condition = "input.DailyTabset=='Map'",
                   absolutePanel(id = "controls", class = "panel panel-default", fixed = TRUE,
-                                draggable = TRUE, top = 253, left = "auto", right = 65, bottom = "auto",
+                                draggable = TRUE, top = 223, left = "auto", right = 30, bottom = "auto",
                                 width = 250, height = 180,
                                 h4(""),
-                                selectInput("basemap_daily","Base map", choices = c("Esri.WorldGrayCanvas","Stamen.TerrainBackground", "Google terrain")),
+                                selectInput("basemap_daily","Base map", choices = basemaps),
                                 sliderInput("alpha_daily", "Raster opacity", min = 0, max = 1, value = 1, ticks = FALSE)
                   )
-                )
 
           )
           # wellPanel(
@@ -89,91 +85,145 @@ shinyUI(
           # )
     ),
     #### HISTORIC FOREST DROUGHT  ####
-    tabPanel("Historic (1990-2015)",
-        wellPanel(
+    tabPanel("Historic (1986-2016)",
               fluidRow(
                  column(width=3,
-                        selectInput("mode_hist", "Variable type", choices = c("Climate","Soil water balance", "Drought stress"))
+                        selectInput("mode_hist", "Variable type", choices = c("Climate","Forest water balance", "Drought stress"), selected = "Forest water balance")
                  ),
                  column(width=3,
                         uiOutput("var_choice_hist")
                  ),
+                 column(width=3,
+                        conditionalPanel(
+                          condition = "input.mode_hist=='Drought stress'",
+                          selectInput("sp_hist", "Choose species", choices = input_sp, selected = "Overall")
+                        )
+                 ),
                  column(width = 3,
                         radioButtons("agg_hist", "Temporal resolution", choices = c("Year", "Month"), selected="Year", inline=TRUE)
-                 ),
-                 column(width=3)
+                 )
               ),
               tabsetPanel(
                 tabPanel("Map",
                          tags$head(
-                           # Include our custom CSS
                            includeCSS("styles.css")
                          ),
-                      wellPanel(
+                         h5(""),
+                      # wellPanel(
                            sidebarLayout(
                              sidebarPanel(
-                                 fluidRow(
-                                   column(width=6,
-                                     selectInput("years_hist","Year", choices=as.character(1990:2015), selected="2015")
-                                   ),
-                                   column(width=6,
-                                          conditionalPanel(
-                                            condition = "input.agg_hist=='Month'",
-                                            selectInput("month_hist", "Month", choices = as.character(1:12), selected="12")
-                                          )
-                                   )
-                                 ),
-                                 hr(),
-                                 selectInput("display_hist", "Selection type", choices = c("none","Watersheds",  "Counties", "Municipalities", "IFN plots"), selected = "none"),
-                                 hr(),
-                                 downloadButton('downloadRasterHist', 'Download raster')
+                               radioButtons("climate_hist", label="Mode", choices=c("1991-2016 period", "Year")),
+                               conditionalPanel(
+                                 condition = "input.climate_hist=='Year'",
+                                 selectInput("years_hist",label=NULL, choices=as.character(1986:2016), selected = 2016)
+                               ),
+                               conditionalPanel(
+                                 condition = "input.agg_hist=='Month'",
+                                 selectInput("month_hist", "Month", choices = as.character(1:12), selected="1")
+                               ),
+                               conditionalPanel(
+                                 condition = "input.climate_hist=='1991-2016 period'",
+                                 radioButtons("raster_trend_hist", "Raster type", choices = c("Average","Absolute change", "Relative change")),
+                                 conditionalPanel(
+                                   condition= "input.raster_trend_hist!='Average'",
+                                   selectInput("alpha_cut_hist", "Sign. level", choices=c(1.0,0.5,0.1,0.05,0.01,0.001,0.0001), selected=1.0)
+                                 )
+                               ),
+                               hr(),
+                               radioButtons("resolution_hist", "Raster resolution", choices = c("Smoothed","1km"), selected = "Smoothed"),
+                               hr(),
+                               selectInput("display_hist", "Selection type", choices = c("none","Watersheds",  "Counties", "Municipalities", "IFN plots"), selected = "none"),
+                               hr(),
+                               downloadButton('downloadRasterHist', 'Download raster')
                                ,width=3),
                              mainPanel(
                                  leafletOutput("map_hist", width = "100%", height = "600px"),
                               width=9)
                          )
-                      )
+                      # )
                 ),
                 tabPanel("Selected series",
-                      wellPanel(
+                      # wellPanel(
+                        h5(""),
                         dygraphOutput("trends_hist") ,
                         hr(),
-                        downloadButton('downloadTrendHist', 'Download trend')
-                      )
+                        wellPanel(
+                          fluidRow(
+                            column(width=3,
+                                   conditionalPanel(
+                                     condition="input.agg_hist=='Month'",
+                                     column(width=4,
+                                            h4(" "),
+                                            checkboxInput("allmonths_hist","All months", value=TRUE)
+                                     ),
+                                     column(width=8,
+                                            h4(" "),
+                                            conditionalPanel(
+                                              condition="!input.allmonths_hist",
+                                              selectInput("trend_month_hist", "Month", choices = as.character(1:12), selected="1")
+                                            )
+
+                                     )
+                                   )
+                            ),
+                            column(1),
+                            column(3,
+                                   h4("Mann-Kendall test"),
+                                   verbatimTextOutput("MK_hist")
+                            ),
+                            column(3,
+                                   h4("Ten-sheil slope"),
+                                   verbatimTextOutput("TS_slope_hist")
+                            ),
+                            column(2,
+                                   h4(" "),
+                                   downloadButton('downloadTrendHist', 'Download trend')
+                            )
+
+                          )
+
+                        )
+
+
+                      # )
                 ),
                 id = "HistTabset"
               ),
               conditionalPanel(
                 condition = "input.HistTabset=='Map'",
                 absolutePanel(id = "controls", class = "panel panel-default", fixed = TRUE,
-                              draggable = TRUE, top = 253, left = "auto", right = 65, bottom = "auto",
+                              draggable = TRUE, top = 223, left = "auto", right = 30, bottom = "auto",
                               width = 250, height = 180,
                               h4(""),
-                              selectInput("basemap_hist","Base map", choices = c("Esri.WorldGrayCanvas","Stamen.TerrainBackground")),
+                              selectInput("basemap_hist","Base map", choices = basemaps),
                               sliderInput("alpha_hist", "Raster opacity", min = 0, max = 1, value = 1, ticks = FALSE)
-                )
               )
         )
         # wellPanel(
         #    p(strong("List of available inputs")),
         #    verbatimTextOutput("inputList_hist")
         # )
-    ), 
+    ),
     #### CC FOREST DROUGHT  ####
     tabPanel("Climate change scenarios",
-        wellPanel(
            fluidRow(
-             column(width=3,
-                    selectInput("mode_proj", "Variable type", choices = c("Climate","Soil water balance", "Drought stress"))
+             column(width=2,
+                    selectInput("mode_proj", "Variable type", choices = c("Climate","Forest water balance", "Drought stress"), selected = "Forest water balance")
              ),
-             column(width=3,
+             column(width=2,
                     uiOutput("var_choice_proj")
+             ),
+             column(width=2,
+                    conditionalPanel(
+                      condition = "input.mode_proj=='Drought stress'",
+                      selectInput("sp_proj", "Choose species", choices = input_sp, selected = "Overall")
+                    )
              ),
              column(width=2,
                     selectInput("rcm_proj", "Climate model", choices = c("CNRM/CCLM4-8-17", "CNRM/RCA4"))
              ),
              column(width=2,
-                    selectInput("rcp_proj", "Climate scenario", choices = c("rcp4.5", "rcp8.5"))
+                     selectInput("rcp_proj", "Climate scenario", choices = c("rcp4.5", "rcp8.5"))
              ),
              column(width=2,
                     radioButtons("agg_proj", "Temporal resolution", choices = c("Year", "Month"), inline=TRUE)
@@ -183,10 +233,16 @@ shinyUI(
              tabPanel("Map",
               tags$head(
                   includeCSS("styles.css")
-              ),                      
-               wellPanel(
+              ),
+              h5(""),
+               # wellPanel(
                  sidebarLayout(
                    sidebarPanel(
+                     radioButtons("raster_trend_proj", "Raster type", choices=c("Slope","Absolute change", "Relative change")),
+                     selectInput("alpha_cut_proj", "Sign. level", choices=c(1.0,0.5,0.1,0.05,0.01,0.001,0.0001), selected=1.0),
+                     hr(),
+                     radioButtons("resolution_proj", "Raster resolution", choices = c("Smoothed","1km"), selected = "Smoothed"),
+                     hr(),
                      selectInput("display_proj", "Selection type", choices = c("none", "Watersheds", "Counties", "Municipalities", "IFN plots"), selected = "none"),
                      hr(),
                      downloadButton('downloadRasterProj', 'Download raster')
@@ -197,48 +253,128 @@ shinyUI(
                      ,
                      width=9)
                  )
-               )
+               # )
              ),
              tabPanel("Selected series",
-                  wellPanel(
-                          dygraphOutput("trends_proj"),
-                          hr(),
-                          downloadButton('downloadTrendProj', 'Download trend')
-                  )
+                      h5(""),
+                      dygraphOutput("trends_proj") ,
+                      hr(),
+                      wellPanel(
+                        fluidRow(
+                          column(width=3,
+                                 conditionalPanel(
+                                   condition="input.agg_proj=='Month'",
+                                   column(width=4,
+                                          h4(" "),
+                                          checkboxInput("allmonths_proj","All months", value=TRUE)
+                                   ),
+                                   column(width=8,
+                                          h4(" "),
+                                          conditionalPanel(
+                                            condition="!input.allmonths_proj",
+                                            selectInput("trend_month_proj", "Month", choices = as.character(1:12), selected="1")
+                                          )
+
+                                   )
+                                 )
+                          ),
+                          column(1),
+                          column(3,
+                                 h4("Mann-Kendall test"),
+                                 verbatimTextOutput("MK_proj")
+                          ),
+                          column(3,
+                                 h4("Ten-sheil slope"),
+                                 verbatimTextOutput("TS_slope_proj")
+                          ),
+                          column(2,
+                                 h4(" "),
+                                 downloadButton('downloadTrendProj', 'Download trend')
+                          )
+
+                        )
+
+                      )
+
              ),
              id = "ProjTabset"
              ),
              conditionalPanel(
                condition = "input.ProjTabset=='Map'",
                absolutePanel(id = "controls", class = "panel panel-default", fixed = TRUE,
-                            draggable = TRUE, top = 253, left = "auto", right = 65, bottom = "auto",
+                            draggable = TRUE, top = 223, left = "auto", right = 30, bottom = "auto",
                            width = 250, height = 180,
                            h4(""),
-                           selectInput("basemap_proj","Base map", choices = c("Esri.WorldGrayCanvas","Stamen.TerrainBackground")),
+                           selectInput("basemap_proj","Base map", choices = basemaps),
                            sliderInput("alpha_proj", "Raster opacity", min = 0, max = 1, value = 1, ticks = FALSE)
                )
-             )
-           
+
           )
           # wellPanel(
           #    p(strong("List of available inputs")),
           #    verbatimTextOutput("inputList_proj")
           # )
-  
+
+    ),
+    tabPanel("Static inputs",
+             fluidRow(
+               column(width=3,
+                      selectInput("mode_stat", "Variable type", choices = c("Soil","IFN2", "IFN3"), selected = "Soil")
+               ),
+               column(width=3,
+                      uiOutput("var_choice_stat")
+               ),
+               column(width=3,
+                      conditionalPanel(
+                        condition = "input.mode_stat!='Soil'",
+                        selectInput("sp_stat", "Choose species", choices = input_sp, selected = "Overall")
+                      )
+               )
+             ),
+             tabsetPanel(
+               tabPanel("Map",
+                        tags$head(
+                          includeCSS("styles.css")
+                        ),
+                        h5(""),
+                        sidebarLayout(
+                          sidebarPanel(
+                            radioButtons("resolution_stat", "Raster resolution", choices = c("Smoothed","1km","200m"), selected = "Smoothed"),
+                            hr(),
+                            selectInput("display_stat", "Selection type", choices = c("none","Watersheds",  "Counties", "Municipalities", "IFN plots"), selected = "none"),
+                            width=3),
+                          mainPanel(
+                            leafletOutput("map_stat", width = "100%", height = "600px"),
+                            width=9)
+                        )
+               ),
+               tabPanel("Selected area"
+               ),
+               id = "StatTabset"
+             ),
+             conditionalPanel(
+               condition = "input.StatTabset=='Map'",
+               absolutePanel(id = "controls", class = "panel panel-default", fixed = TRUE,
+                             draggable = TRUE, top = 223, left = "auto", right = 30, bottom = "auto",
+                             width = 250, height = 180,
+                             h4(""),
+                             selectInput("basemap_stat","Base map", choices = basemaps),
+                             sliderInput("alpha_stat", "Raster opacity", min = 0, max = 1, value = 1, ticks = FALSE)
+               )
+             )
+
     ),
     navbarMenu("Documentation",
                tabPanel("User's guide",
-                        wellPanel(
                           includeMarkdown("Docs/UserGuide.Rmd")
-                        )
                ),
                tabPanel("Technical specifications",
-                        wellPanel(
+                        # wellPanel(
                           includeMarkdown("Docs/TechnicalSpecifications.Rmd")
-                        )
+                          # style = "overflow-y:scroll; max-height: 700px"
+                        # )
                ),
                tabPanel("Acknowledgements",
-                        wellPanel(
                           includeMarkdown("Docs/Credits.Rmd"),
                           hr(),
                           hr(),
@@ -255,7 +391,6 @@ shinyUI(
                             ),
                             column(3)
                           )
-                        )
                )
     ),
     id="navbar",
